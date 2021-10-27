@@ -29,17 +29,17 @@ from docker import types
 
 # Set to target of scripts/download_all_databases.sh
 #DOWNLOAD_DIR = 'SET ME'
-DOWNLOAD_DIR = '/data/alberto/alphafold_databases'
+DOWNLOAD_DIR = '/mnt/disks/afdbs'
 
 # Name of the AlphaFold Docker image.
 docker_image_name = 'alphafold'
 
 # Path to a directory that will store the results.
 #output_dir = '/tmp/alphafold'
-output_dir = '/data/alberto/alphafold_results'
+output_dir = '/home/jacobroberts/out'
 
 # Path to a directory where temporary directories will be held
-tmp_dir = '/data/alberto/alphafold_tmp'
+tmp_dir = '/tmp'
 
 # Names of models to use.
 model_names = [
@@ -62,7 +62,7 @@ uniref90_database_path = os.path.join(
 
 # Path to the MGnify database for use by JackHMMER.
 mgnify_database_path = os.path.join(
-    DOWNLOAD_DIR, 'mgnify', 'mgy_clusters_2018_12.fa')
+    DOWNLOAD_DIR, 'mgnify', 'mgy_clusters.fa')
 
 # Path to the BFD database for use by HHblits.
 bfd_database_path = os.path.join(
@@ -111,6 +111,12 @@ flags.DEFINE_boolean('benchmark', False, 'Run multiple JAX model evaluations '
                      'to obtain a timing that excludes the compilation time, '
                      'which should be more indicative of the time required for '
                      'inferencing many proteins.')
+flags.DEFINE_float(
+    'msa_size_gb', None, 'Size of the MSA.')
+flags.DEFINE_string(
+    'homooligomer', None, 'The number of oligomers to model '
+    'protein with. By default, will model as monomer '
+    '(default: 1)')
 
 FLAGS = flags.FLAGS
 
@@ -173,6 +179,9 @@ def main(argv):
       f'--max_template_date={FLAGS.max_template_date}',
       f'--preset={FLAGS.preset}',
       f'--benchmark={FLAGS.benchmark}',
+      f'--msa_size_gb={FLAGS.msa_size_gb}',
+      f'--homooligomer={FLAGS.homooligomer}',
+      f'--tmp_dir={FLAGS.tmp_dir}',
       '--logtostderr',
   ])
 

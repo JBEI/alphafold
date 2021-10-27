@@ -33,6 +33,7 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.relax import relax
 import numpy as np
+from pathlib import Path
 
 #import tensorflow.compat.v1 as tf
 #
@@ -109,12 +110,14 @@ flags.DEFINE_integer(
     'that even if this is set, Alphafold may still not be '
     'deterministic, because processes like GPU inference are '
     'nondeterministic.')
+flags.DEFINE_float(
+    'msa_size_gb', 1.99, 'Size of the MSA.')
 flags.DEFINE_string(
-    'homooligomer', None, 'The number of oligomers to model '
+    'homooligomer', '1', 'The number of oligomers to model '
     'protein with. By default, will model as monomer '
     '(default: 1)')
-flags.DEFINE_integer('max_recycles', None, 'Max recycles')
-flags.DEFINE_float('tol', None, 'Max recycle tolerance')
+flags.DEFINE_integer('max_recycles', '3', 'Max recycles')
+flags.DEFINE_float('tol', 0.0, 'Max recycle tolerance')
 flags.DEFINE_boolean('turbo', False, 'Whether to use turbo alphafold models')
 flags.DEFINE_string('mmseqs_binary_path', '/usr/bin/mmseqs',
                     'Path to the mmseqs executable.')
@@ -126,6 +129,8 @@ flags.DEFINE_string('mmseqs_mgnify_database_path', None, 'Path to the MGnify '
 flags.DEFINE_string('mmseqs_small_bfd_database_path', None, 'Path to the BFD '
                     'database for use by mmseqs.')
 flags.DEFINE_boolean('mmseqs', False, 'Whether to use mmseqs MSA pipeline')
+flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
+flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -168,6 +173,7 @@ def predict_structure(fasta_path: str,
                       amber_relaxer: relax.AmberRelaxation,
                       benchmark: bool,
                       random_seed: int,
+                      msa_size_gb: float,
                       homooligomer: str = '1',
                       relax: bool = False,
                       turbo: bool = False):
@@ -186,6 +192,7 @@ def predict_structure(fasta_path: str,
         t_0 = time.time()
         feature_dict = data_pipeline.process(input_fasta_path=fasta_path,
                                              msa_output_dir=msa_output_dir,
+                                             msa_size_gb=msa_size_gb,
                                              homooligomer=homooligomer)
         timings['features'] = time.time() - t_0
 
@@ -195,7 +202,7 @@ def predict_structure(fasta_path: str,
     else:
         with open(features_output_path, 'rb') as f:
             feature_dict = pickle.load(f)
-    logging.info(str(feature_dict))
+    #logging.info(str(feature_dict))
 
     unrelaxed_pdbs = {}
     relaxed_pdbs = {}
@@ -216,7 +223,8 @@ def predict_structure(fasta_path: str,
         compiled = (N, L, use_ptm, max_recycles, tol, num_ensemble, max_msa,
                     is_training)
         logging.info(f'Turbo model: {str(compiled)}')
-        clear_mem("gpu")
+        if FLAGS.clear_gpu:
+            clear_mem("gpu")
         cfg = config.model_config(name)
         cfg.data.common.max_extra_msa = min(N, max_extra_msa)
         cfg.data.eval.max_msa_clusters = min(N, max_msa_clusters)
@@ -365,7 +373,8 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
-    clear_mem('gpu')
+    if FLAGS.clear_gpu: 
+        clear_mem('gpu')
     clear_mem('cpu')
 
     use_small_bfd = FLAGS.preset == 'reduced_dbs'
@@ -395,7 +404,8 @@ def main(argv):
         max_hits=MAX_TEMPLATE_HITS,
         kalign_binary_path=FLAGS.kalign_binary_path,
         release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
 
     data_pipeline = pipeline.DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -413,7 +423,8 @@ def main(argv):
         mmseqs_mgnify_database_path=FLAGS.mmseqs_mgnify_database_path,
         mmseqs_small_bfd_database_path=FLAGS.mmseqs_small_bfd_database_path,
         mmseqs=FLAGS.mmseqs,
-        use_small_bfd=use_small_bfd)
+        use_small_bfd=use_small_bfd,
+        tmp_dir=Path(FLAGS.tmp_dir))
 
     model_runners = {}
     if not FLAGS.turbo:
@@ -446,6 +457,8 @@ def main(argv):
         random_seed = random.randrange(sys.maxsize)
     logging.info('Using random seed %d for the data pipeline', random_seed)
 
+    msa_size_gb = FLAGS.msa_size_gb
+
     homooligomer = FLAGS.homooligomer
     if homooligomer is None:
         homooligomer = '1'
@@ -460,6 +473,7 @@ def main(argv):
                           amber_relaxer=amber_relaxer,
                           benchmark=FLAGS.benchmark,
                           random_seed=random_seed,
+                          msa_size_gb=msa_size_gb,
                           homooligomer=homooligomer,
                           relax=FLAGS.relax,
                           turbo=FLAGS.turbo)
@@ -479,14 +493,7 @@ if __name__ == '__main__':
         'max_template_date',
         'obsolete_pdbs_path',
         'relax',
-        'homooligomer',
-        'max_recycles',
-        'tol',
-        'mmseqs_binary_path',
-        'mmseqs_uniref50_database_path',
-        'mmseqs_mgnify_database_path',
-        'mmseqs_small_bfd_database_path',
-        'mmseqs',
+        'tmp_dir'
     ])
 
     app.run(main)

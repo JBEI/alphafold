@@ -27,7 +27,10 @@ import numpy as np
 from dataclasses import dataclass
 from string import ascii_uppercase
 import pickle
+
+from pathlib import Path
 import random
+
 
 # Internal import (7716).
 
@@ -120,51 +123,52 @@ def make_sequence_features(sequence: str,
 def make_msa_features(msas: Sequence[Sequence[str]],
                       deletion_matrices: Sequence[parsers.DeletionMatrix],
                       Ln: int,
+                      msa_size_gb: float,
                       homooligomer: int = 1) -> FeatureDict:
     """Constructs a feature dict of MSA features."""
     if not msas:
         raise ValueError('At least one MSA must be provided.')
 
-    all_msas = []
-    all_deletion_matrices = []
-    if homooligomer > 1:
-        for o in range(homooligomer):
-            for msa, deletion_matrix in zip(msas, deletion_matrices):
-                L = Ln * o
-                R = Ln * (homooligomer - (o + 1))
-                all_msas.append(["-" * L + seq + "-" * R for seq in msa])
-                all_deletion_matrices.append([[0] * L + mtx + [0] * R
-                                              for mtx in deletion_matrix])
-    else:
-        all_msas = msas
-        all_deletion_matrices = deletion_matrices
+    # Flatten and denormalize the MSA. The denormalized form has every
+    # sequence from all the MSAs, times the number of homooligomers.
+    denorm_msa = []
+    denorm_deletion_matrix = []
+    for msa_idx, (msa, deletion_matrix) in enumerate(zip(msas, deletion_matrices)):
+        if not msa:
+            raise ValueError(
+                f'MSA {msa_idx} must contain at least one sequence.')
+        for sequence, deletion_row in zip(msa, deletion_matrix):
+            for olig_idx in range(homooligomer):
+                L = Ln * olig_idx
+                R = Ln * (homooligomer - (olig_idx + 1))
+                denorm_msa.append("-" * L + sequence + "-" * R)
+                denorm_deletion_matrix.append([0] * L + deletion_row + [0] * R)
+
+    # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
+    max_msa_sequences = (msa_size_gb * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
+ 
+    # Randomly select a subset of the flattened form and convert to ints.
 
     int_msa = []
     deletion_matrix = []
     seen_sequences = set()
-    # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
-    max_msa_sequences = (1.99 * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
-    num_sequences = 0
-    for msa_index, msa in enumerate(all_msas):
-        if not msa:
-            raise ValueError(
-                f'MSA {msa_index} must contain at least one sequence.')
-        #for sequence_index, sequence in enumerate(random.sample(msa, min(len(msa),max_msa_sequences))):
-        for sequence_index, sequence in enumerate(msa):
-            if sequence in seen_sequences:
-                continue
-            seen_sequences.add(sequence)
-            int_msa.append(
-                [residue_constants.HHBLITS_AA_TO_ID[res] for res in sequence])
-            deletion_matrix.append(
-                all_deletion_matrices[msa_index][sequence_index])
-            num_sequences += 1
-            if num_sequences >= max_msa_sequences:
-                break
-        if num_sequences >= max_msa_sequences:
+    for index in random.sample(range(len(denorm_msa)), k=len(denorm_msa)):
+        sequence = denorm_msa[index]
+        deletion_row = denorm_deletion_matrix[index]
+
+        # Don't add duplicate sequences to the MSA.
+        if sequence in seen_sequences:
+            continue
+        seen_sequences.add(sequence)
+
+        int_msa.append(
+            [residue_constants.HHBLITS_AA_TO_ID[res] for res in sequence])
+        deletion_matrix.append(deletion_row)
+
+        if len(seen_sequences) >= max_msa_sequences:
             break
 
-    num_res = len(all_msas[0][0])
+    num_res = len(denorm_msa[0])
     num_alignments = len(int_msa)
     features = {}
     features['deletion_matrix_int'] = np.array(deletion_matrix, dtype=np.int32)
@@ -315,6 +319,7 @@ class DataPipeline:
                  mmseqs_small_bfd_database_path: str,
                  mmseqs: bool,
                  use_small_bfd: bool,
+                 tmp_dir: Path,
                  mgnify_max_hits: int = 501,
                  uniref_max_hits: int = 25000,
                  bfd_max_hits: int = 25000):
@@ -323,22 +328,28 @@ class DataPipeline:
         self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
             binary_path=jackhmmer_binary_path,
             database_path=uniref90_database_path,
+            tmp_dir=tmp_dir,
             get_tblout=True)
         if use_small_bfd:
             self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
                 binary_path=jackhmmer_binary_path,
                 database_path=small_bfd_database_path,
+                tmp_dir=tmp_dir,
                 get_tblout=True)
         else:
             self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
                 binary_path=hhblits_binary_path,
-                databases=[bfd_database_path, uniclust30_database_path])
+                databases=[bfd_database_path, uniclust30_database_path],
+                tmp_dir=tmp_dir)
         self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
             binary_path=jackhmmer_binary_path,
             database_path=mgnify_database_path,
+            tmp_dir=tmp_dir,
             get_tblout=True)
         self.hhsearch_pdb70_runner = hhsearch.HHSearch(
-            binary_path=hhsearch_binary_path, databases=[pdb70_database_path])
+            binary_path=hhsearch_binary_path,
+            databases=[pdb70_database_path],
+            tmp_dir=tmp_dir)
         #self.mmseqs_runner = mmseqs2.MMSeqs(
         #    binary_path=mmseqs_binary_path,
         #    uniref50_database_path=mmseqs_uniref50_database_path,
@@ -352,6 +363,7 @@ class DataPipeline:
     def process(self,
                 input_fasta_path: str,
                 msa_output_dir: str,
+                msa_size_gb: float,
                 homooligomer: str = '1') -> FeatureDict:
         """Runs alignment tools on the input sequence and creates features."""
         with open(input_fasta_path) as f:
@@ -464,6 +476,7 @@ class DataPipeline:
             deletion_matrices=(uniref90_deletion_matrix, bfd_deletion_matrix,
                                mgnify_deletion_matrix),
             Ln=len(input_sequence),
+            msa_size_gb=msa_size_gb,
             homooligomer=homooligomer)
 
         logging.info('Uniref90 MSA size: %d sequences.', len(uniref90_msa))
