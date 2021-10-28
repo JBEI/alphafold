@@ -319,6 +319,7 @@ if [[ $preset == "reduced_dbs" ]]; then
         --max_recycles=$max_recycles \
         --tol=$tol \
         --msa_size_gb=$msa_size_gb \
+        --tmp_dir=$tmp_dir \
         --purpose=$purpose \
         {COMPLEX_NAME} \
         {MMSEQS} \
@@ -353,6 +354,7 @@ else
         --max_recycles=$max_recycles \
         --tol=$tol \
         --msa_size_gb=$msa_size_gb \
+        --tmp_dir=$tmp_dir \
         --purpose=$purpose \
         {COMPLEX_NAME} \
         {MMSEQS} \
