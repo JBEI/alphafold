@@ -125,6 +125,12 @@ def cli() -> argparse.ArgumentParser:
               'recycles (CA-RMS between recycles)'),
     )
     parser.add_argument(
+        "--msa_size_gb",
+        type=float,
+        default=1.99,
+        help=('Max MSA size in GB'),
+    )
+    parser.add_argument(
         "--use_ptm",
         action='store_true',
         help=('From ColabFold: use_ptm uses Deepminds ptm finetuned model '
@@ -156,6 +162,12 @@ def cli() -> argparse.ArgumentParser:
         type=str,
         default="/global/scratch/aanava/alphafold_results",
         help=('Path to alphafold output folder'),
+    )
+    parser.add_argument(
+        "--alphafold_tmp",
+        type=str,
+        default="/global/scratch/aanava/alphafold_tmp",
+        help=('Path to folder where temporary files can be stored'),
     )
     parser.add_argument(
         "--miniconda",
@@ -251,13 +263,16 @@ preset="{PRESET}"
 homooligomer="{HOMOOLIGOMERS}"
 data_dir="{ALPHAFOLD_DATABASES}"
 output_dir="{ALPHAFOLD_RESULTS}"
+tmp_dir="{ALPHAFOLD_TMP}"
 model_names="model_1"
 max_template_date="2022-12-31"
 benchmark=false
 max_recycles={MAX_RECYCLES}
 tol={TOL}
+msa_size_gb={MSA_SIZE_GB}
+purpose={PURPOSE}
 
-alphafold_script="{ALPHAFOLD}/{PURPOSE}.py"
+alphafold_script="{ALPHAFOLD}/{SCRIPT}"
 small_bfd_database_path="$data_dir/small_bfd/bfd-first_non_consensus_sequences.fasta"
 bfd_database_path="$data_dir/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
 mgnify_database_path="$data_dir/mgnify/mgy_clusters.fa"
@@ -303,6 +318,8 @@ if [[ $preset == "reduced_dbs" ]]; then
         --homooligomer=$homooligomer \
         --max_recycles=$max_recycles \
         --tol=$tol \
+        --msa_size_gb=$msa_size_gb \
+        --purpose=$purpose \
         {COMPLEX_NAME} \
         {MMSEQS} \
         {TURBO})
@@ -335,6 +352,8 @@ else
         --homooligomer=$homooligomer \
         --max_recycles=$max_recycles \
         --tol=$tol \
+        --msa_size_gb=$msa_size_gb \
+        --purpose=$purpose \
         {COMPLEX_NAME} \
         {MMSEQS} \
         {TURBO})
@@ -371,14 +390,17 @@ preset="{PRESET}"
 homooligomer="{HOMOOLIGOMERS}"
 data_dir="{ALPHAFOLD_DATABASES}"
 output_dir="{ALPHAFOLD_RESULTS}"
+tmp_dir="{ALPHAFOLD_TMP}"
 model_names="{MODELS}"
 relax="{RELAX_STRUCTURES}"
 max_template_date="2022-12-31"
 benchmark=false
 max_recycles={MAX_RECYCLES}
 tol={TOL}
+msa_size_gb={MSA_SIZE_GB}
+purpose={PURPOSE}
 
-alphafold_script="{ALPHAFOLD}/run_alphafold.py"
+alphafold_script="{ALPHAFOLD}/{SCRIPT}"
 small_bfd_database_path="$data_dir/small_bfd/bfd-first_non_consensus_sequences.fasta"
 bfd_database_path="$data_dir/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
 mgnify_database_path="$data_dir/mgnify/mgy_clusters.fa"
@@ -429,6 +451,9 @@ if [[ $preset == "reduced_dbs" ]]; then
         --relax=$relax \
         --max_recycles=$max_recycles \
         --tol=$tol \
+        --msa_size_gb=$msa_size_gb \
+        --purpose=$purpose \
+        --tmp_dir=$tmp_dir \
         {MMSEQS} \
         {TURBO})
 else
@@ -461,6 +486,9 @@ else
         --relax=$relax \
         --max_recycles=$max_recycles \
         --tol=$tol \
+        --msa_size_gb=$msa_size_gb \
+        --purpose=$purpose \
+        --tmp_dir=$tmp_dir \
         {MMSEQS} \
         {TURBO})
 fi
@@ -477,14 +505,14 @@ def create_combine_msa_script(target_fasta: str, args: dict,
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
     if args['cluster'] == 'lrc':
-        if args['full_length'] > 1500:
+        if args['full_length'] > 1000:
             partition = 'lr6,lr3'
         else:
             partition = 'lr3,lr6'
         account = 'pc_rosetta'
         qos = 'lr_normal'
     elif args['cluster'] == 'savio':
-        if args['full_length'] > 1500:
+        if args['full_length'] > 1000:
             partition = 'savio2_bigmem,savio2,savio'
         else:
             partition = 'savio2,savio'
@@ -505,9 +533,12 @@ def create_combine_msa_script(target_fasta: str, args: dict,
             "ALPHAFOLD_LOGS": logs_dir,
             "ALPHAFOLD_DATABASES": args['alphafold_databases'],
             "ALPHAFOLD_RESULTS": args['alphafold_results'],
-            "PURPOSE": 'run_combine_msas',
+            "ALPHAFOLD_TMP": args['alphafold_tmp'],
+            "PURPOSE": 'combine_msas',
+            "SCRIPT": 'run_alphafold.py',
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
+            "MSA_SIZE_GB": args['msa_size_gb'],
             "COMPLEX_NAME": f'--complex_name={complex_name}',
             #"PARTITION_MEM": '48G',
             "TURBO": f'--turbo={args["turbo"]}',
@@ -525,14 +556,14 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
     if args['cluster'] == 'lrc':
-        if args['full_length'] > 1500:
+        if args['full_length'] > 1000:
             partition = 'lr6,lr3'
         else:
             partition = 'lr3,lr6'
         account = 'pc_rosetta'
         qos = 'lr_normal'
     elif args['cluster'] == 'savio':
-        if args['full_length'] > 1500:
+        if args['full_length'] > 1000:
             partition = 'savio2_bigmem,savio2,savio'
         else:
             partition = 'savio2,savio'
@@ -554,9 +585,12 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
             "ALPHAFOLD_LOGS": logs_dir,
             "ALPHAFOLD_DATABASES": args['alphafold_databases'],
             "ALPHAFOLD_RESULTS": args['alphafold_results'],
-            "PURPOSE": 'run_msas',
+            "ALPHAFOLD_TMP": args['alphafold_tmp'],
+            "PURPOSE": 'msas',
+            "SCRIPT": 'run_alphafold.py',
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
+            "MSA_SIZE_GB": args['msa_size_gb'],
             "COMPLEX_NAME": f'--complex_name={complex_name}',
             #"PARTITION_MEM": '180G',
             "TURBO": '',
@@ -574,14 +608,14 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
     output_dir: str = os.path.join(args['alphafold_results'], name)
     logs_dir: str = os.path.join(output_dir, 'logs')
     if args['cluster'] == 'lrc':
-        if args['full_length'] > 1500:
+        if args['full_length'] > 1000:
             partition = 'lr6,lr3'
         else:
             partition = 'lr3,lr6'
         account = 'pc_rosetta'
         qos = 'lr_normal'
     elif args['cluster'] == 'savio':
-        if args['full_length'] > 1500:
+        if args['full_length'] > 1000:
             partition = 'savio2_bigmem,savio2,savio'
         else:
             partition = 'savio2,savio'
@@ -603,9 +637,12 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
             "ALPHAFOLD_LOGS": logs_dir,
             "ALPHAFOLD_DATABASES": args['alphafold_databases'],
             "ALPHAFOLD_RESULTS": args['alphafold_results'],
-            "PURPOSE": 'run_feature',
+            "ALPHAFOLD_TMP": args['alphafold_tmp'],
+            "PURPOSE": 'features',
+            "SCRIPT": 'run_alphafold.py',
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
+            "MSA_SIZE_GB": args['msa_size_gb'],
             "COMPLEX_NAME": '',
             #"PARTITION_MEM": '180G',
             "TURBO": '',
@@ -669,12 +706,16 @@ export PKG_CONFIG_PATH=$CUDA_DIR/pkgconfig:$PKG_CONFIG_PATH'''
             "ALPHAFOLD_LOGS": logs_dir,
             "ALPHAFOLD_DATABASES": args['alphafold_databases'],
             "ALPHAFOLD_RESULTS": args['alphafold_results'],
+            "ALPHAFOLD_TMP": args['alphafold_tmp'],
             "GPU_DEVICES": args['gpu_devices'],
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
+            "MSA_SIZE_GB": args['msa_size_gb'],
             "TURBO": f'--turbo={args["turbo"]}',
             "MMSEQS": '',
             "MODULES": modules,
+            "PURPOSE": 'full',
+            "SCRIPT": 'run_alphafold.py',
         })
     model_script_path: str = os.path.join(output_dir,
                                           f'submit_models_{name}.slurm')

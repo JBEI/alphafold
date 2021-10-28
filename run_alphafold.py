@@ -35,18 +35,6 @@ from alphafold.relax import relax
 import numpy as np
 from pathlib import Path
 
-#import tensorflow.compat.v1 as tf
-#
-#logging.info("Num GPUs Available: ",
-#             len(tf.config.list_physical_devices('GPU')))
-#logging.info("Num CPUs Available: ",
-#             len(tf.config.list_physical_devices('CPU')))
-#tf.config.set_visible_devices([], 'GPU')
-#
-#config2 = tf.ConfigProto()
-#config2.gpu_options.allow_growth = True
-#session = tf.Session(config=config2)
-
 import jax
 # Internal import (7716).
 
@@ -131,6 +119,9 @@ flags.DEFINE_string('mmseqs_small_bfd_database_path', None, 'Path to the BFD '
 flags.DEFINE_boolean('mmseqs', False, 'Whether to use mmseqs MSA pipeline')
 flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
 flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
+flags.DEFINE_string('purpose', 'full', ('Whether to run full alphafold pipeline,'
+    ' or just individual steps. Can be one of ["full", "features", '
+    ' "combine_msas", "msas"]'))
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -149,8 +140,7 @@ def _check_flag(flag_name: str, preset: str, should_be_set: bool):
 
 def rm(x):
     '''remove data from device'''
-    jax.tree_util.tree_map(lambda y: y.device_buffer.delete(), x)
-
+    jax.tree_util.tree_map(lambda y: y.device_buffer.delete(), x) 
 
 def to(x, device="cpu"):
     '''move data to device'''
@@ -176,6 +166,7 @@ def predict_structure(fasta_path: str,
                       msa_size_gb: float,
                       homooligomer: str = '1',
                       relax: bool = False,
+                      purpose: str = 'full',
                       turbo: bool = False):
     """Predicts structure using AlphaFold for the given sequence."""
     timings = {}
@@ -186,23 +177,50 @@ def predict_structure(fasta_path: str,
     if not os.path.exists(msa_output_dir):
         os.makedirs(msa_output_dir)
 
+    if purpose == 'msas':
+        prefix: str = fasta_name
+        pickled_msa_path = os.path.join(msa_output_dir, f'{prefix}.pickle')
+        if not os.path.exists(pickled_msa_path):
+            t_0 = time.time()
+            data_pipeline.create_msas(input_fasta_path=fasta_path,
+                                      msa_output_dir=msa_output_dir)
+            timings['msas'] = time.time() - t_0
+
+            timings_output_path = os.path.join(output_dir,
+                                               f'{prefix}_msa_only_timings.json')
+            with open(timings_output_path, 'w') as f:
+                f.write(json.dumps(timings, indent=4))
+        return None
+
     features_output_path = os.path.join(output_dir, 'features.pkl')
     if not os.path.exists(features_output_path):
         # Get features.
         t_0 = time.time()
-        feature_dict = data_pipeline.process(input_fasta_path=fasta_path,
-                                             msa_output_dir=msa_output_dir,
-                                             msa_size_gb=msa_size_gb,
-                                             homooligomer=homooligomer)
+        if purpose == 'combine_msas':
+            feature_dict = data_pipeline.combine_msas(input_fasta_path=fasta_path,
+                                                      msa_output_dir=msa_output_dir,
+                                                      msa_size_gb=msa_size_gb,
+                                                      homooligomer=homooligomer,
+                                                      turbo=turbo)
+        else:
+            feature_dict = data_pipeline.process(input_fasta_path=fasta_path,
+                                                 msa_output_dir=msa_output_dir,
+                                                 msa_size_gb=msa_size_gb,
+                                                 homooligomer=homooligomer)
         timings['features'] = time.time() - t_0
 
         # Write out features as a pickled dictionary.
         with open(features_output_path, 'wb') as f:
             pickle.dump(feature_dict, f, protocol=4)
+        timings_output_path = os.path.join(output_dir,
+                                           f'features_timings.json')
+        with open(timings_output_path, 'w') as f:
+            f.write(json.dumps(timings, indent=4))
     else:
         with open(features_output_path, 'rb') as f:
             feature_dict = pickle.load(f)
-    #logging.info(str(feature_dict))
+    if purpose in ['features', 'combine_msas']:
+        return None
 
     unrelaxed_pdbs = {}
     relaxed_pdbs = {}
@@ -476,6 +494,7 @@ def main(argv):
                           msa_size_gb=msa_size_gb,
                           homooligomer=homooligomer,
                           relax=FLAGS.relax,
+                          purpose=FLAGS.purpose,
                           turbo=FLAGS.turbo)
 
 
