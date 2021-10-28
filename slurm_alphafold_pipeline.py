@@ -321,6 +321,7 @@ if [[ $preset == "reduced_dbs" ]]; then
         --msa_size_gb=$msa_size_gb \
         --tmp_dir=$tmp_dir \
         --purpose=$purpose \
+        --clear_gpu=false \
         {COMPLEX_NAME} \
         {MMSEQS} \
         {TURBO})
@@ -356,6 +357,7 @@ else
         --msa_size_gb=$msa_size_gb \
         --tmp_dir=$tmp_dir \
         --purpose=$purpose \
+        --clear_gpu=false \
         {COMPLEX_NAME} \
         {MMSEQS} \
         {TURBO})
@@ -456,6 +458,7 @@ if [[ $preset == "reduced_dbs" ]]; then
         --msa_size_gb=$msa_size_gb \
         --purpose=$purpose \
         --tmp_dir=$tmp_dir \
+        --clear_gpu=true \
         {MMSEQS} \
         {TURBO})
 else
@@ -491,6 +494,7 @@ else
         --msa_size_gb=$msa_size_gb \
         --purpose=$purpose \
         --tmp_dir=$tmp_dir \
+        --clear_gpu=true \
         {MMSEQS} \
         {TURBO})
 fi
