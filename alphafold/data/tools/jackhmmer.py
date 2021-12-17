@@ -20,8 +20,10 @@ import os
 import subprocess
 from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
+from pathlib import Path
 
 from absl import logging
+from pathlib import Path
 
 from alphafold.data.tools import utils
 # Internal import (7716).
@@ -34,6 +36,7 @@ class Jackhmmer:
                *,
                binary_path: str,
                database_path: str,
+               tmp_dir: Path,
                n_cpu: int = 8,
                n_iter: int = 1,
                e_value: float = 0.0001,
@@ -69,6 +72,7 @@ class Jackhmmer:
     self.binary_path = binary_path
     self.database_path = database_path
     self.num_streamed_chunks = num_streamed_chunks
+    self.tmp_dir = tmp_dir
 
     if not os.path.exists(self.database_path) and num_streamed_chunks is None:
       logging.error('Could not find Jackhmmer database %s', database_path)
@@ -89,7 +93,7 @@ class Jackhmmer:
   def _query_chunk(self, input_fasta_path: str, database_path: str
                    ) -> Mapping[str, Any]:
     """Queries the database chunk using Jackhmmer."""
-    with utils.tmpdir_manager() as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       sto_path = os.path.join(query_tmp_dir, 'output.sto')
 
       # The F1/F2/F3 are the expected proportion to pass each of the filtering

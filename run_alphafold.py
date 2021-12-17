@@ -37,6 +37,7 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.relax import relax
 import numpy as np
+from pathlib import Path
 
 from alphafold.model import data
 # Internal import (7716).
@@ -116,6 +117,9 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
 flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
                      'have been written to disk. WARNING: This will not check '
                      'if the sequence, database or configuration have changed.')
+
+# Our flags.
+flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
 
 FLAGS = flags.FLAGS
 
@@ -333,7 +337,8 @@ def main(argv):
         max_hits=MAX_TEMPLATE_HITS,
         kalign_binary_path=FLAGS.kalign_binary_path,
         release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
   else:
     template_searcher = hhsearch.HHSearch(
         binary_path=FLAGS.hhsearch_binary_path,
@@ -344,7 +349,8 @@ def main(argv):
         max_hits=MAX_TEMPLATE_HITS,
         kalign_binary_path=FLAGS.kalign_binary_path,
         release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
 
   monomer_data_pipeline = pipeline.DataPipeline(
       jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -357,7 +363,8 @@ def main(argv):
       template_searcher=template_searcher,
       template_featurizer=template_featurizer,
       use_small_bfd=use_small_bfd,
-      use_precomputed_msas=FLAGS.use_precomputed_msas)
+      use_precomputed_msas=FLAGS.use_precomputed_msas,
+      tmp_dir=Path(FLAGS.tmp_dir))
 
   if run_multimer_system:
     data_pipeline = pipeline_multimer.DataPipeline(

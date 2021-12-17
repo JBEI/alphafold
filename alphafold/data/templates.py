@@ -28,6 +28,7 @@ from alphafold.data import mmcif_parsing
 from alphafold.data import parsers
 from alphafold.data.tools import kalign
 import numpy as np
+from pathlib import Path
 
 # Internal import (7716).
 
@@ -299,7 +300,8 @@ def _realign_pdb_template_to_query(
     template_chain_id: str,
     mmcif_object: mmcif_parsing.MmcifObject,
     old_mapping: Mapping[int, int],
-    kalign_binary_path: str) -> Tuple[str, Mapping[int, int]]:
+    kalign_binary_path: str,
+    tmp_dir: Path) -> Tuple[str, Mapping[int, int]]:
   """Aligns template from the mmcif_object to the query.
 
   In case PDB70 contains a different version of the template sequence, we need
@@ -338,7 +340,7 @@ def _realign_pdb_template_to_query(
     * Or if the actual template sequence differs by more than 10% from the
       old_template_sequence.
   """
-  aligner = kalign.Kalign(binary_path=kalign_binary_path)
+  aligner = kalign.Kalign(binary_path=kalign_binary_path, tmp_dir=tmp_dir)
   new_template_sequence = mmcif_object.chain_to_seqres.get(
       template_chain_id, '')
 
@@ -551,7 +553,8 @@ def _extract_template_features(
         template_chain_id=template_chain_id,
         mmcif_object=mmcif_object,
         old_mapping=mapping,
-        kalign_binary_path=kalign_binary_path)
+        kalign_binary_path=kalign_binary_path,
+        tmp_dir=tmp_dir)
     logging.info('Sequence in %s_%s: %s successfully realigned to %s',
                  pdb_id, chain_id, template_sequence, seqres)
     # The template sequence changed.
@@ -691,6 +694,7 @@ def _process_single_hit(
     release_dates: Mapping[str, datetime.datetime],
     obsolete_pdbs: Mapping[str, Optional[str]],
     kalign_binary_path: str,
+    tmp_dir: Path,
     strict_error_check: bool = False) -> SingleHitResult:
   """Tries to extract template features from a single HHSearch hit."""
   # Fail hard if we can't get the PDB ID and chain name from the hit.
@@ -759,7 +763,8 @@ def _process_single_hit(
         template_sequence=template_sequence,
         query_sequence=query_sequence,
         template_chain_id=hit_chain_id,
-        kalign_binary_path=kalign_binary_path)
+        kalign_binary_path=kalign_binary_path,
+        tmp_dir=tmp_dir)
     if hit.sum_probs is None:
       features['template_sum_probs'] = [0]
     else:
@@ -808,6 +813,7 @@ class TemplateHitFeaturizer(abc.ABC):
       kalign_binary_path: str,
       release_dates_path: Optional[str],
       obsolete_pdbs_path: Optional[str],
+      tmp_dir: Path,
       strict_error_check: bool = False):
     """Initializes the Template Search.
 
@@ -846,6 +852,7 @@ class TemplateHitFeaturizer(abc.ABC):
     self._max_hits = max_hits
     self._kalign_binary_path = kalign_binary_path
     self._strict_error_check = strict_error_check
+    self._tmp_dir = tmp_dir
 
     if release_dates_path:
       logging.info('Using precomputed release dates %s.', release_dates_path)
@@ -898,7 +905,8 @@ class HhsearchHitFeaturizer(TemplateHitFeaturizer):
           release_dates=self._release_dates,
           obsolete_pdbs=self._obsolete_pdbs,
           strict_error_check=self._strict_error_check,
-          kalign_binary_path=self._kalign_binary_path)
+          kalign_binary_path=self._kalign_binary_path,
+          tmp_dir=self._tmp_dir,)
 
       if result.error:
         errors.append(result.error)

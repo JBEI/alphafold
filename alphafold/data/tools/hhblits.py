@@ -20,6 +20,7 @@ import subprocess
 from typing import Any, List, Mapping, Optional, Sequence
 
 from absl import logging
+from pathlib import Path
 from alphafold.data.tools import utils
 # Internal import (7716).
 
@@ -35,6 +36,7 @@ class HHBlits:
                *,
                binary_path: str,
                databases: Sequence[str],
+               tmp_dir: Path,
                n_cpu: int = 4,
                n_iter: int = 3,
                e_value: float = 0.001,
@@ -76,6 +78,7 @@ class HHBlits:
     """
     self.binary_path = binary_path
     self.databases = databases
+    self.tmp_dir = tmp_dir
 
     for database_path in self.databases:
       if not glob.glob(database_path + '_*'):
@@ -96,7 +99,7 @@ class HHBlits:
 
   def query(self, input_fasta_path: str) -> List[Mapping[str, Any]]:
     """Queries the database using HHblits."""
-    with utils.tmpdir_manager() as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       a3m_path = os.path.join(query_tmp_dir, 'output.a3m')
 
       db_cmd = []

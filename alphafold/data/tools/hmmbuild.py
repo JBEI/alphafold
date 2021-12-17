@@ -19,6 +19,7 @@ import re
 import subprocess
 
 from absl import logging
+from pathlib import Path
 from alphafold.data.tools import utils
 # Internal import (7716).
 
@@ -29,6 +30,7 @@ class Hmmbuild(object):
   def __init__(self,
                *,
                binary_path: str,
+               tmp_dir: Path,
                singlemx: bool = False):
     """Initializes the Python hmmbuild wrapper.
 
@@ -98,7 +100,7 @@ class Hmmbuild(object):
       raise ValueError(f'Invalid model_construction {model_construction} - only'
                        'hand and fast supported.')
 
-    with utils.tmpdir_manager() as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       input_query = os.path.join(query_tmp_dir, 'query.msa')
       output_hmm_path = os.path.join(query_tmp_dir, 'output.hmm')
 

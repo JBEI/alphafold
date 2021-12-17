@@ -19,6 +19,7 @@ import subprocess
 from typing import Optional, Sequence
 
 from absl import logging
+from pathlib import Path
 from alphafold.data import parsers
 from alphafold.data.tools import hmmbuild
 from alphafold.data.tools import utils
@@ -33,6 +34,7 @@ class Hmmsearch(object):
                binary_path: str,
                hmmbuild_binary_path: str,
                database_path: str,
+               tmp_dir: Path,
                flags: Optional[Sequence[str]] = None):
     """Initializes the Python hmmsearch wrapper.
 
@@ -49,6 +51,7 @@ class Hmmsearch(object):
     self.binary_path = binary_path
     self.hmmbuild_runner = hmmbuild.Hmmbuild(binary_path=hmmbuild_binary_path)
     self.database_path = database_path
+    self.tmp_dir = tmp_dir
     if flags is None:
       # Default hmmsearch run settings.
       flags = ['--F1', '0.1',
@@ -80,7 +83,7 @@ class Hmmsearch(object):
 
   def query_with_hmm(self, hmm: str) -> str:
     """Queries the database using hmmsearch using a given hmm."""
-    with utils.tmpdir_manager() as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       hmm_input_path = os.path.join(query_tmp_dir, 'query.hmm')
       out_path = os.path.join(query_tmp_dir, 'output.sto')
       with open(hmm_input_path, 'w') as f:

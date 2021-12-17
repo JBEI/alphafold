@@ -18,6 +18,7 @@ import subprocess
 from typing import Sequence
 
 from absl import logging
+from pathlib import Path
 
 from alphafold.data.tools import utils
 # Internal import (7716).
@@ -36,7 +37,11 @@ def _to_a3m(sequences: Sequence[str]) -> str:
 class Kalign:
   """Python wrapper of the Kalign binary."""
 
-  def __init__(self, *, binary_path: str):
+  def __init__(
+      self,
+      *,
+      binary_path: str,
+      tmp_dir: Path):
     """Initializes the Python Kalign wrapper.
 
     Args:
@@ -46,6 +51,7 @@ class Kalign:
       RuntimeError: If Kalign binary not found within the path.
     """
     self.binary_path = binary_path
+    self.tmp_dir = tmp_dir
 
   def align(self, sequences: Sequence[str]) -> str:
     """Aligns the sequences and returns the alignment in A3M string.
@@ -70,7 +76,7 @@ class Kalign:
         raise ValueError('Kalign requires all sequences to be at least 6 '
                          'residues long. Got %s (%d residues).' % (s, len(s)))
 
-    with utils.tmpdir_manager() as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       input_fasta_path = os.path.join(query_tmp_dir, 'input.fasta')
       output_a3m_path = os.path.join(query_tmp_dir, 'output.a3m')
 
