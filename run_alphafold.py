@@ -40,6 +40,7 @@ import numpy as np
 from pathlib import Path
 
 from alphafold.model import data
+import jax
 # Internal import (7716).
 
 logging.set_verbosity(logging.INFO)
@@ -120,6 +121,7 @@ flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
 
 # Our flags.
 flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
+flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
 
 FLAGS = flags.FLAGS
 
@@ -138,6 +140,13 @@ def _check_flag(flag_name: str,
     verb = 'be' if should_be_set else 'not be'
     raise ValueError(f'{flag_name} must {verb} set when running with '
                      f'"--{other_flag_name}={FLAGS[other_flag_name].value}".')
+
+
+def clear_mem(device="gpu"):
+    '''remove all data from device'''
+    backend = jax.lib.xla_bridge.get_backend(device)
+    for buf in backend.live_buffers():
+        buf.delete()
 
 
 def predict_structure(
@@ -277,6 +286,9 @@ def predict_structure(
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
+
+  if FLAGS.clear_gpu: 
+      clear_mem('gpu')
 
   for tool_name in (
       'jackhmmer', 'hhblits', 'hhsearch', 'hmmsearch', 'hmmbuild', 'kalign'):
