@@ -122,6 +122,7 @@ flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
 # Our flags.
 flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
 flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
+flags.DEFINE_boolean('stop_after_msas', False, 'Whether to stop computation after building MSAs.')
 
 FLAGS = flags.FLAGS
 
@@ -154,6 +155,7 @@ def predict_structure(
     fasta_name: str,
     output_dir_base: str,
     data_pipeline: Union[pipeline.DataPipeline, pipeline_multimer.DataPipeline],
+    stop_after_msas: bool,
     model_runners: Dict[str, model.RunModel],
     amber_relaxer: relax.AmberRelaxation,
     benchmark: bool,
@@ -186,6 +188,10 @@ def predict_structure(
   features_output_path = os.path.join(output_dir, 'features.pkl')
   with open(features_output_path, 'wb') as f:
     pickle.dump(feature_dict, f, protocol=4)
+
+  if stop_after_msas:
+    logging.info('Stopping short after making MSAs, timings for %s: %s', fasta_name, timings)
+    return
 
   unrelaxed_pdbs = {}
   relaxed_pdbs = {}
@@ -424,6 +430,7 @@ def main(argv):
         fasta_name=fasta_name,
         output_dir_base=FLAGS.output_dir,
         data_pipeline=data_pipeline,
+        stop_after_msas=FLAGS.stop_after_msas,
         model_runners=model_runners,
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,
