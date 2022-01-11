@@ -24,6 +24,7 @@ import tempfile
 from typing import Mapping, MutableMapping, Sequence
 
 from absl import logging
+from pathlib import Path
 from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.data import feature_processing
@@ -174,6 +175,7 @@ class DataPipeline:
                monomer_data_pipeline: pipeline.DataPipeline,
                jackhmmer_binary_path: str,
                uniprot_database_path: str,
+               tmp_dir: Path,
                max_uniprot_hits: int = 50000,
                use_precomputed_msas: bool = False):
     """Initializes the data pipeline.
@@ -190,9 +192,11 @@ class DataPipeline:
     self._monomer_data_pipeline = monomer_data_pipeline
     self._uniprot_msa_runner = jackhmmer.Jackhmmer(
         binary_path=jackhmmer_binary_path,
-        database_path=uniprot_database_path)
+        database_path=uniprot_database_path,
+        tmp_dir=tmp_dir)
     self._max_uniprot_hits = max_uniprot_hits
     self.use_precomputed_msas = use_precomputed_msas
+    self.tmp_dir = tmp_dir
 
   def _process_single_chain(
       self,

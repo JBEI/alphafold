@@ -391,7 +391,8 @@ def main(argv):
         monomer_data_pipeline=monomer_data_pipeline,
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
         uniprot_database_path=FLAGS.uniprot_database_path,
-        use_precomputed_msas=FLAGS.use_precomputed_msas)
+        use_precomputed_msas=FLAGS.use_precomputed_msas,
+        tmp_dir=Path(FLAGS.tmp_dir))
   else:
     data_pipeline = monomer_data_pipeline
 
