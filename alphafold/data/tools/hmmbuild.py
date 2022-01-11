@@ -30,7 +30,7 @@ class Hmmbuild(object):
   def __init__(self,
                *,
                binary_path: str,
-: Path,
+               tmp_dir: Path,
                singlemx: bool = False):
     """Initializes the Python hmmbuild wrapper.
 
