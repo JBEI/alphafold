@@ -348,7 +348,8 @@ def main(argv):
     template_searcher = hmmsearch.Hmmsearch(
         binary_path=FLAGS.hmmsearch_binary_path,
         hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-        database_path=FLAGS.pdb_seqres_database_path)
+        database_path=FLAGS.pdb_seqres_database_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
     template_featurizer = templates.HmmsearchHitFeaturizer(
         mmcif_dir=FLAGS.template_mmcif_dir,
         max_template_date=FLAGS.max_template_date,
@@ -360,7 +361,8 @@ def main(argv):
   else:
     template_searcher = hhsearch.HHSearch(
         binary_path=FLAGS.hhsearch_binary_path,
-        databases=[FLAGS.pdb70_database_path])
+        databases=[FLAGS.pdb70_database_path],
+        tmp_dir=Path(FLAGS.tmp_dir))
     template_featurizer = templates.HhsearchHitFeaturizer(
         mmcif_dir=FLAGS.template_mmcif_dir,
         max_template_date=FLAGS.max_template_date,
