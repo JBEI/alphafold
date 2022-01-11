@@ -49,7 +49,10 @@ class Hmmsearch(object):
       RuntimeError: If hmmsearch binary not found within the path.
     """
     self.binary_path = binary_path
-    self.hmmbuild_runner = hmmbuild.Hmmbuild(binary_path=hmmbuild_binary_path)
+    self.hmmbuild_runner = hmmbuild.Hmmbuild(
+      binary_path=hmmbuild_binary_path,
+      tmp_dir=tmp_dir
+    )
     self.database_path = database_path
     self.tmp_dir = tmp_dir
     if flags is None:

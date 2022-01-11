@@ -44,6 +44,7 @@ class Hmmbuild(object):
     """
     self.binary_path = binary_path
     self.singlemx = singlemx
+    self.tmp_dir = tmp_dir
 
   def build_profile_from_sto(self, sto: str, model_construction='fast') -> str:
     """Builds a HHM for the aligned sequences given as an A3M string.
