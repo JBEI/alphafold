@@ -973,7 +973,8 @@ class HmmsearchHitFeaturizer(TemplateHitFeaturizer):
           release_dates=self._release_dates,
           obsolete_pdbs=self._obsolete_pdbs,
           strict_error_check=self._strict_error_check,
-          kalign_binary_path=self._kalign_binary_path)
+          kalign_binary_path=self._kalign_binary_path,
+          tmp_dir=self._tmp_dir)
 
       if result.error:
         errors.append(result.error)
