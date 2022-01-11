@@ -491,7 +491,8 @@ def _extract_template_features(
     template_sequence: str,
     query_sequence: str,
     template_chain_id: str,
-    kalign_binary_path: str) -> Tuple[Dict[str, Any], Optional[str]]:
+    kalign_binary_path: str,
+    tmp_dir: Path) -> Tuple[Dict[str, Any], Optional[str]]:
   """Parses atom positions in the target structure and aligns with the query.
 
   Atoms for each residue in the template structure are indexed to coincide
