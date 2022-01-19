@@ -39,10 +39,10 @@ def model_config(name: str) -> ml_collections.ConfigDict:
 MODEL_PRESETS = {
     'monomer': (
         'model_1',
-        'model_2',
-        'model_3',
-        'model_4',
-        'model_5',
+        # 'model_2',
+        # 'model_3',
+        # 'model_4',
+        # 'model_5',
     ),
     'monomer_ptm': (
         'model_1_ptm',
