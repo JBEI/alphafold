@@ -20,6 +20,7 @@ import subprocess
 from typing import Sequence
 
 from absl import logging
+from pathlib import Path
 
 from alphafold.data import parsers
 from alphafold.data.tools import utils
@@ -32,6 +33,7 @@ class HHSearch:
   def __init__(self,
                *,
                binary_path: str,
+               tmp_dir: Path,
                databases: Sequence[str],
                maxseq: int = 1_000_000):
     """Initializes the Python HHsearch wrapper.
@@ -50,6 +52,7 @@ class HHSearch:
     self.binary_path = binary_path
     self.databases = databases
     self.maxseq = maxseq
+    self.tmp_dir = tmp_dir
 
     for database_path in self.databases:
       if not glob.glob(database_path + '_*'):
@@ -66,7 +69,7 @@ class HHSearch:
 
   def query(self, a3m: str) -> str:
     """Queries the database using HHsearch using a given a3m."""
-    with utils.tmpdir_manager() as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       input_path = os.path.join(query_tmp_dir, 'query.a3m')
       hhr_path = os.path.join(query_tmp_dir, 'output.hhr')
       with open(input_path, 'w') as f:

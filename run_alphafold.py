@@ -38,7 +38,10 @@ from alphafold.model import data
 from alphafold.model import model
 from alphafold.relax import relax
 import numpy as np
+from pathlib import Path
 
+from alphafold.model import data
+import jax
 # Internal import (7716).
 
 logging.set_verbosity(logging.INFO)
@@ -131,6 +134,11 @@ flags.DEFINE_boolean('use_gpu_relax', None, 'Whether to relax on GPU. '
                      'recommended to enable if possible. GPUs must be available'
                      ' if this setting is enabled.')
 
+# Our flags.
+flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
+flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
+flags.DEFINE_boolean('stop_after_msas', False, 'Whether to stop computation after building MSAs.')
+
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -150,11 +158,19 @@ def _check_flag(flag_name: str,
                      f'"--{other_flag_name}={FLAGS[other_flag_name].value}".')
 
 
+def clear_mem(device="gpu"):
+    '''remove all data from device'''
+    backend = jax.lib.xla_bridge.get_backend(device)
+    for buf in backend.live_buffers():
+        buf.delete()
+
+
 def predict_structure(
     fasta_path: str,
     fasta_name: str,
     output_dir_base: str,
     data_pipeline: Union[pipeline.DataPipeline, pipeline_multimer.DataPipeline],
+    stop_after_msas: bool,
     model_runners: Dict[str, model.RunModel],
     amber_relaxer: relax.AmberRelaxation,
     benchmark: bool,
@@ -184,6 +200,10 @@ def predict_structure(
   
   if stop_after_msa:
     return None
+
+  if stop_after_msas:
+    logging.info('Stopping short after making MSAs, timings for %s: %s', fasta_name, timings)
+    return
 
   unrelaxed_pdbs = {}
   relaxed_pdbs = {}
@@ -285,6 +305,9 @@ def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
 
+  if FLAGS.clear_gpu: 
+      clear_mem('gpu')
+
   for tool_name in (
       'jackhmmer', 'hhblits', 'hhsearch', 'hmmsearch', 'hmmbuild', 'kalign'):
     if not FLAGS[f'{tool_name}_binary_path'].value:
@@ -321,25 +344,29 @@ def main(argv):
     template_searcher = hmmsearch.Hmmsearch(
         binary_path=FLAGS.hmmsearch_binary_path,
         hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-        database_path=FLAGS.pdb_seqres_database_path)
+        database_path=FLAGS.pdb_seqres_database_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
     template_featurizer = templates.HmmsearchHitFeaturizer(
         mmcif_dir=FLAGS.template_mmcif_dir,
         max_template_date=FLAGS.max_template_date,
         max_hits=MAX_TEMPLATE_HITS,
         kalign_binary_path=FLAGS.kalign_binary_path,
         release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
   else:
     template_searcher = hhsearch.HHSearch(
         binary_path=FLAGS.hhsearch_binary_path,
-        databases=[FLAGS.pdb70_database_path])
+        databases=[FLAGS.pdb70_database_path],
+        tmp_dir=Path(FLAGS.tmp_dir))
     template_featurizer = templates.HhsearchHitFeaturizer(
         mmcif_dir=FLAGS.template_mmcif_dir,
         max_template_date=FLAGS.max_template_date,
         max_hits=MAX_TEMPLATE_HITS,
         kalign_binary_path=FLAGS.kalign_binary_path,
         release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
 
   monomer_data_pipeline = pipeline.DataPipeline(
       jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -352,7 +379,8 @@ def main(argv):
       template_searcher=template_searcher,
       template_featurizer=template_featurizer,
       use_small_bfd=use_small_bfd,
-      use_precomputed_msas=FLAGS.use_precomputed_msas)
+      use_precomputed_msas=FLAGS.use_precomputed_msas,
+      tmp_dir=Path(FLAGS.tmp_dir))
 
   if run_multimer_system:
     num_predictions_per_model = FLAGS.num_multimer_predictions_per_model
@@ -360,7 +388,8 @@ def main(argv):
         monomer_data_pipeline=monomer_data_pipeline,
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
         uniprot_database_path=FLAGS.uniprot_database_path,
-        use_precomputed_msas=FLAGS.use_precomputed_msas)
+        use_precomputed_msas=FLAGS.use_precomputed_msas,
+        tmp_dir=Path(FLAGS.tmp_dir))
   else:
     num_predictions_per_model = 1
     data_pipeline = monomer_data_pipeline
@@ -406,6 +435,7 @@ def main(argv):
         fasta_name=fasta_name,
         output_dir_base=FLAGS.output_dir,
         data_pipeline=data_pipeline,
+        stop_after_msas=FLAGS.stop_after_msas,
         model_runners=model_runners,
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,

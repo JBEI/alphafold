@@ -49,6 +49,9 @@ flags.DEFINE_string(
     'output_dir', '/tmp/alphafold',
     'Path to a directory that will store the results.')
 flags.DEFINE_string(
+    'tmp_dir', '/tmp',
+    'Path to a directory that will store temp files.')
+flags.DEFINE_string(
     'data_dir', None,
     'Path to directory with supporting data: AlphaFold parameters and genetic '
     'and template databases. Set to the target of download_all_databases.sh.')
@@ -211,6 +214,7 @@ def main(argv):
   output_target_path = os.path.join(_ROOT_MOUNT_DIRECTORY, 'output')
   mounts.append(types.Mount(output_target_path, FLAGS.output_dir, type='bind'))
 
+  mounts.append(types.Mount('/tmp', tmp_dir, type='bind'))
   use_gpu_relax = FLAGS.enable_gpu_relax and FLAGS.use_gpu
 
   command_args.extend([
@@ -220,6 +224,7 @@ def main(argv):
       f'--model_preset={FLAGS.model_preset}',
       f'--benchmark={FLAGS.benchmark}',
       f'--use_precomputed_msas={FLAGS.use_precomputed_msas}',
+      f'--tmp_dir={FLAGS.tmp_dir}',
       f'--num_multimer_predictions_per_model={FLAGS.num_multimer_predictions_per_model}',
       f'--run_relax={FLAGS.run_relax}',
       f'--use_gpu_relax={use_gpu_relax}',
