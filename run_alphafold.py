@@ -119,6 +119,8 @@ flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
                      'runs that are to reuse the MSAs. WARNING: This will not '
                      'check if the sequence, database or configuration have '
                      'changed.')
+flags.DEFINE_boolean('stop_after_msa', False, 'Whether to stop the pipeline '
+                     'after creating the MSAs.')
 flags.DEFINE_boolean('run_relax', True, 'Whether to run the final relaxation '
                      'step on the predicted models. Turning relax off might '
                      'result in predictions with distracting stereochemical '
@@ -156,7 +158,8 @@ def predict_structure(
     model_runners: Dict[str, model.RunModel],
     amber_relaxer: relax.AmberRelaxation,
     benchmark: bool,
-    random_seed: int):
+    random_seed: int,
+    stop_after_msa: bool):
   """Predicts structure using AlphaFold for the given sequence."""
   logging.info('Predicting %s', fasta_name)
   timings = {}
@@ -178,6 +181,9 @@ def predict_structure(
   features_output_path = os.path.join(output_dir, 'features.pkl')
   with open(features_output_path, 'wb') as f:
     pickle.dump(feature_dict, f, protocol=4)
+  
+  if stop_after_msa:
+    return None
 
   unrelaxed_pdbs = {}
   relaxed_pdbs = {}
@@ -403,7 +409,8 @@ def main(argv):
         model_runners=model_runners,
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,
-        random_seed=random_seed)
+        random_seed=random_seed,
+        stop_after_msa=FLAGS.stop_after_msa)
 
 
 if __name__ == '__main__':
