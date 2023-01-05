@@ -17,6 +17,7 @@ import io
 from alphafold.common import residue_constants
 from Bio import PDB
 import numpy as np
+<<<<<<< HEAD
 from openmm import app as openmm_app
 from openmm.app.internal.pdbstructure import PdbStructure
 
@@ -28,6 +29,8 @@ def overwrite_pdb_coordinates(pdb_str: str, pos) -> str:
   with io.StringIO() as f:
     openmm_app.PDBFile.writeFile(topology, pos, f)
     return f.getvalue()
+=======
+>>>>>>> 569eb4fea3733b979cb0442750b875759dd5ecc0
 
 
 def overwrite_b_factors(pdb_str: str, bfactors: np.ndarray) -> str:
