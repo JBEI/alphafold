@@ -53,14 +53,14 @@ RUN wget -q -P /tmp \
 
 # Install conda packages.
 ENV PATH="/opt/conda/bin:$PATH"
-RUN conda install -qy conda==4.13.0 \
- && conda install -y -c conda-forge \
-  openmm=7.6.0 \
-  cudatoolkit==${CUDA_VERSION} \
-  pdbfixer \
-  pip \
-  python=3.8 \
-  && conda clean --all --force-pkgs-dirs --yes
+RUN conda install -qy conda==23.5.2 \
+    && conda install -y -c conda-forge \
+      openmm=7.7.0 \
+      cudatoolkit==${CUDA_VERSION} \
+      pdbfixer \
+      pip \
+      python=3.10 \
+      && conda clean --all --force-pkgs-dirs --yes
 
 COPY . /app/alphafold
 RUN wget -q -P /app/alphafold/alphafold/common/ \
@@ -73,8 +73,6 @@ RUN pip3 install --upgrade pip --no-cache-dir \
       jax==0.3.25 \
       jaxlib==0.3.25+cuda11.cudnn805 \
       -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-
-# As of OpenMM=7.6.0 the previous OpenMM patch is no longer necessary.
 
 # Add SETUID bit to the ldconfig binary so that non-root users can run it.
 RUN chmod u+s /sbin/ldconfig.real
