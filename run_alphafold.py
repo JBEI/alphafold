@@ -584,7 +584,7 @@ def main(argv):
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,
         random_seed=random_seed,
-        stop_after_msa=FLAGS.stop_after_msa)
+        stop_after_msa=FLAGS.stop_after_msa,
         models_to_relax=FLAGS.models_to_relax,
         model_type=model_type,
     )
