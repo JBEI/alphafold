@@ -22,18 +22,18 @@ ARG CUDA
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
-        build-essential \
-        cmake \
-        cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
-        git \
-        hmmer \
-        kalign \
-        tzdata \
-        wget \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get autoremove -y \
-    && apt-get clean
+  && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+  build-essential \
+  cmake \
+  cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
+  git \
+  hmmer \
+  kalign \
+  tzdata \
+  wget \
+  && rm -rf /var/lib/apt/lists/* \
+  && apt-get autoremove -y \
+  && apt-get clean
 
 # Compile HHsuite from source.
 RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh-suite \
@@ -53,7 +53,7 @@ RUN wget -q -P /tmp \
 
 # Install conda packages.
 ENV PATH="/opt/conda/bin:$PATH"
-RUN conda install -qy conda==23.5.2 \
+RUN conda install -qy conda==24.1.2 \
     && conda install -y -c conda-forge \
       openmm=7.7.0 \
       cudatoolkit==${CUDA_VERSION} \
